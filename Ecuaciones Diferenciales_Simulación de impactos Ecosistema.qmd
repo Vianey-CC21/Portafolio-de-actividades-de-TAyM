@@ -1,0 +1,97 @@
+---
+title: "Ecuaciones diferenciales"
+format: html
+editor: visual
+---
+
+```{r}
+install.packages("deSolve")
+library(deSolve)
+library(ggplot2)
+```
+
+r tasa de crecimiento K tasa de ataque e Eficiencia m Moratlidad
+
+```{r}
+modelo_lago<-function(t, state,parameters)
+  {with(as.list(c(state, parameters)),{
+    dx<-r*x*(1-x/K)-a*x*y
+    dy<-e*a*x*y-m*y
+  
+  return(list(c(dx, dy)))
+  })
+}  
+```
+
+establecer parametros y condiciones
+
+```{r}
+params <- c(r=1.2, K=50, a=0.1, e=0.4, m=0.4)
+estado_inicial<-c(x=20, y=5)
+tiempo<-seq(0,100,by=0.1)
+```
+
+resolución
+
+```{r}
+out<-as.data.frame(ode(y=estado_inicial, times=tiempo, func = modelo_lago, parms = params))
+```
+
+visualización
+
+```{r}
+ggplot(out, aes(x=time))+
+  geom_line(aes(y=x, color="Algas (Presa)"), linewidth = 1)+
+  geom_line(aes(y = y,color="Dafnias (Depredador)"),linewidth = 1)+
+  labs(title="Dinámica estabilizada: Presa-Depredador",
+       x="Días",y="Biomasa",color="Especie")+
+  theme_minimal()
+```
+
+Analisís de datos (interpretación)
+
+```{r}
+max_presa<-max(out$x)
+max_presa
+summary(out)
+tiempo_pico<-out$time[which.max(out$y)]
+tiempo_pico
+```
+
+Creación de simulación de uso de pesticidas en la población Vamos a cambiar los parametros sin cambiar el modelo
+
+```{r}
+params_impacto<-c(r=0.5, K=50, a=0.02, e=0.4, m=0.5)
+estado_inicial<-c(x=20, y=5)
+tiempo<-seq(0,100, by=0.1)
+```
+
+resolución 2
+
+```{r}
+out_impacto<-as.data.frame(ode(y=estado_inicial, times=tiempo,func=modelo_lago,parms = params_impacto))
+```
+
+Graficamos ambos escenarios
+
+```{r}
+#gráfica sistema sano
+plot(out$time, out$x, type="l", col="forestgreen", lwd=2,
+     ylim=c(0, 60), main="Comparativa de Salud del ecosistema",
+     xlab="Días", ylab="Biomasa(Individuos)")
+lines(out$time, out$y, col="firebrick", lwd=2)
+
+#grafica sistema impactado
+lines(out_impacto$time, out_impacto$x, col="forestgreen", lwd=2, lty=2)
+lines(out_impacto$time, out_impacto$y, col="forestgreen", lwd=2, lty=2)
+
+#leyendas
+legend("topright",
+      legend=c("Algas(Sano)", "Dafnias(Sano)", "Algas(Impacto)", "Dafnias(Impacto)"),
+      col=c("forestgreen", "firebrick", "forestgreen", "firebrick"),
+      lty=c(1,1,2,2), lwd = 2, cex = 0.8)
+```
+
+Interpretación:El modelo muestra una dinámica presa-depredador entre algas y dafnias donde ambas poblaciones presentan oscilaciones iniciales hasta alcanzar un equilibrio cercano a 10 unidades de biomasa, indicando un ecosistema estable donde ambas especies pueden coexistir. Las algas comienzan con una biomasa de 20 y las dafnias de 5; posteriormente, las dafnias alcanzan un pico cercano a 13 unidades mientras las algas disminuyen temporalmente antes de estabilizarse.
+
+En el escenario con impacto por pesticidas, disminuye el crecimiento de las algas y aumenta la mortalidad de las dafnias. Como consecuencia, las dafnias disminuyen hasta valores cercanos a 0, mientras las algas crecen excesivamente hasta aproximarse a 50 unidades, equivalente a la capacidad de carga. Esto refleja un desequilibrio ecológico causado por la alteración de las interacciones entre especies.
