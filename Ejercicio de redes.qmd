@@ -1,0 +1,174 @@
+---
+title: "Analisis_redes2"
+author: "Vianey C.C"
+format: html
+editor: visual
+llamamos las librerias al entorno
+---
+
+```{r}
+install.packages("ggraph")
+install.packages("tidygraph")
+library(igraph)
+library(ggrepel)
+```
+
+url: Llamamos un archivo temporal al entorno desde una pagina web temp: crea un archiuvo y una biblioteca temporal unzip: descomprime el archivo gml_file: archivo extensión gml, crear un archivo de nombre y lo lee
+
+```{r}
+url <- "http://www-personal.umich.edu/~mejn/netdata/dolphins.zip"
+temp <- tempfile()
+download.file(url, temp)
+unzip(temp, exdir = tempdir())
+gml_file <- list.files(tempdir(), pattern = "\\.gml$", full.names = TRUE)
+dolphin_graph <- read_graph(gml_file, format = "gml")
+```
+
+Contexto: Se trata de la red social de una comunidad de 62 delfines nariz de botella (Tursiops) que viven en Doubtful Sound, Nueva Zelanda. Representa las asociaciones frecuentes observadas entre estos animales desde 1994 hasta 2001 Nodos y Conexiones: Está compuesta por 62 nodos (los delfines) y 159 conexiones (asociaciones) Naturaleza de la Red: La red es no dirigida y no ponderada, lo que significa que las relaciones son mutuas y no se les asigna una fuerza o valor específico Datos de los Nodos: Cada nodo (delfín) en el archivo del dataset tiene información adicional como su sexo (masculino, femenino o desconocido) y su edad (aproximada) 3.
+
+print: Información básica de la red
+
+```{r}
+print(dolphin_graph)
+```
+
+```{r}
+summary(dolphin_graph)
+```
+
+Metricas de redes deg: genera el grado de los datos
+
+```{r}
+deg <- degree(dolphin_graph)
+deg_norm <- degree(dolphin_graph, normalized = TRUE)
+```
+
+Intermediación
+
+```{r}
+bet <- betweenness(dolphin_graph, normalized = TRUE)
+```
+
+Cercanía
+
+```{r}
+clo <- closeness(dolphin_graph, normalized = TRUE)
+```
+
+Tabla de resumen
+
+```{r}
+centralidad <- data.frame(
+  Nodo = V(dolphin_graph)$label,
+  Grado = deg,
+  Grado_norm = round(deg_norm, 3),
+  Betweenness = round(bet, 3),
+  Closeness = round(clo, 3)
+)
+print(centralidad)
+```
+
+Detección de comunidades: Comunidades por el algoritmo de Louvain
+
+```{r}
+louvain <- cluster_louvain(dolphin_graph)
+V(dolphin_graph)$comunidad <- membership(louvain)
+```
+
+Comunidades por el algoritmo de Girvan-Newman (edge between- ness)
+
+```{r}
+gn <- cluster_edge_betweenness(dolphin_graph)
+V(dolphin_graph)$comunidad_gn <- membership(gn)
+```
+
+Tamaño de las comunidades detectadas
+
+```{r}
+print("Comunidades Louvain:")
+```
+
+```{r}
+print(table(membership(louvain)))
+```
+
+```{r}
+print("Comunidades Girvan-Newman:")
+```
+
+```{r}
+print(table(membership(gn)))
+```
+
+Visualización con igraph (básica pero funcional)
+
+```{r}
+plot(louvain, dolphin_graph,
+layout = layout_with_fr,
+vertex.label = V(dolphin_graph)$name,
+vertex.label.cex = 0.7,
+edge.arrow.size = 0,
+main = "Red de delfines (comunidades Louvain)")
+```
+
+```{r}
+install.packages("tidygraph")
+```
+
+Cambiamos el fromato de tabla a grafico
+
+```{r}
+dolphin_tbl <- as_tbl_graph(dolphin_graph)
+```
+
+Añadir atributos de comunidad para colorear activa los nodos y desactiva la comunidad label: etiqueta
+
+```{r}
+dolphin_tbl <- dolphin_tbl %>%
+activate(nodes) %>%
+mutate(comunidad = as.factor(group_louvain()))
+
+ggraph(dolphin_tbl, layout = "fr") +
+geom_edge_link(alpha = 0.3, show.legend = FALSE) +
+geom_node_point(aes(color = as.factor(comunidad)), size = 4) +
+geom_node_text(aes(label = label), repel = TRUE, size = 3) +
+scale_color_brewer(palette = "Set2", name = "Comunidad") +
+theme_graph() +
+labs(title = "Red social de delfines (Doubtful Sound)",
+subtitle = "Colores según comunidades detectadas (Louvain)")
+```
+
+Identificar los delfines más importantes (top 5 por betweenness)
+
+```{r}
+top_betweenness <- centralidad %>%
+arrange(desc(Betweenness)) %>%
+head(5)
+print("Top 5 delfines por intermediación (brokers):")
+```
+
+```{r}
+print(top_betweenness)
+```
+
+Guardar resultados en CSV escogemos la parte que queremos guardar
+
+```{r}
+write.csv(centralidad, "centralidad_delfines.csv", row.names = FALSE)
+```
+
+Visualización interactiva con networkD3 \# Convertir igraph a formato D3
+
+```{r}
+library(networkD3)
+d3_net <- igraph_to_networkD3(dolphin_graph, group = membership(louvain))
+forceNetwork(Links = d3_net$links,
+Nodes = d3_net$nodes,
+Source = "source",
+Target = "target",
+NodeID = "name",
+Group = "group",
+opacity = 0.9,
+zoom = TRUE,
+fontSize = 12)
+```
