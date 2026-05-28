@@ -1,0 +1,142 @@
+---
+title: "Pyoyecto final: Análisis BSTS de sitios contaminados en México"
+author: "C.C.Vianey, M.P.Elis, M.R.Dafne"
+date: "2026-05-11"
+output:
+  html_document:
+    df_print: paged
+---
+Bloque de configuración para controlar como se muestran los chunks en el código al general el html o pdf.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Introducción:
+En este análisi se utilizarán datos de sitios contaminados registrados entre 2014 y 2024 para evaluar el comportamiento temporal del número de sitios contaminados en México mediante un modelo BSTS. Se considerará como periodo pre intervención los años 2014-2019, mientras que el periodo asociado a la pandemia de COVID-19 corresponderá a 2020 y 2021, evaluando posteriormente el comportamiento post intervención entre 2022 y 2024.
+
+
+```{r}
+#Cargar librerías 
+library(CausalImpact)
+library(zoo)
+library(dplyr)
+library(tidyverse)
+library(imputeTS)
+```
+
+
+Cargar datos obtenidos de https://www.datos.gob.mx/dataset/sitios_contaminados-por-tipo-de-contaminante
+
+Cargar base de datos 
+```{r}
+datos <- read.csv(
+  "sitios_contaminados_tipo_contaminante.csv",
+  stringsAsFactors = FALSE
+)
+#Visualizar primeras filas
+head(datos)
+
+#Revisar estructura
+str(datos)
+```
+
+
+
+Limpiar los datos, revisando los valores faltantes y eliminar registros duplicados
+```{r}
+colSums(is.na(datos))
+datos <- distinct(datos)
+```
+
+
+Convertir variables a númerico y ordenar
+```{r}
+datos <- datos %>%
+  mutate(
+    anio = as.numeric(anio),
+    numero_sitios = as.numeric(numero_sitios)
+  ) %>%
+  arrange(anio)
+```
+
+Eliminar filas sin datos en variables clave y el resumen estadistico
+```{r}
+datos <- datos %>%
+  drop_na(anio, numero_sitios)
+summary(datos)
+```
+
+Verificar frecuencia temporal
+
+```{r}
+sort(unique(datos$anio))
+```
+
+Crear serie temporal
+```{r}
+serie <- datos %>%
+  group_by(anio) %>%
+  summarise(
+    total_sitios = sum(
+      numero_sitios,
+      na.rm = TRUE
+    )
+  )
+print(serie)
+```
+
+Manejo de valores faltantes, cantidad de NA y aplicar filtro de Kalman 
+```{r}
+sum(is.na(serie$total_sitios))
+
+serie$total_sitios <- na_kalman(
+  serie$total_sitios,
+  model = "StructTS"
+)
+```
+
+*Definir periodos pre y post intervención*
+Se considerará el periodo 2020-2021 como etapa de intervención debido a los cambios asociados a la pandemia de COVID-19, los cuales pudieron influir en las actividades industriales, económicas y de monitoreo ambiental relacionadas con los sitios contaminados en México.
+
+El periodo 2014-2019 se utilizará como referencia pre intervención para representar el comportamiento previo a la pandemia, mientras que el periodo 2022-2024 permitirá evaluar el comportamiento posterior y posibles cambios en la tendencia temporal de los sitios contaminados registrados.
+```{r}
+pre_period <- c(2014, 2019)
+post_period <- c(2020, 2024)
+```
+
+
+Crear zoo series
+```{r}
+y <- zoo(
+  serie$total_sitios,
+  serie$anio
+)
+```
+
+
+
+Ejecutar el modelo
+```{r}
+impacto <- CausalImpact(
+  y,
+  pre.period = pre_period,
+  post.period = post_period
+)
+```
+
+
+
+Resultados
+```{r}
+summary(impacto)
+
+summary(impacto, "report")
+
+plot(impacto)
+```
+
+El modelo BSTS compara el comportamiento esperado del número de sitios contaminados después de 2020 respecto a la tendencia observada antes de la pandemia.
+
+Si el modelo detecta diferencias importantes entre los valores observados y los valores predichos, esto puede indicar un posible efecto asociado al periodo de intervención.
+
+Además, el análisis permite observar cambios acumulados y tendencias posteriores al periodo asociado a la pandemia.
