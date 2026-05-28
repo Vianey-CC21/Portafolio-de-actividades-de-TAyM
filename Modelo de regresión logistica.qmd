@@ -1,0 +1,70 @@
+---
+title: "Modelo de regresión logistica"
+author: "Vianey Camacho"
+format: html
+editor: visual
+Date: 02-03-26
+---
+
+```{r}
+install.packages("vegan")
+library(vegan)
+```
+Cargamos dos datasets de ejemplo en el entorno: uno de especies y otro de variables ambientales.
+```{r}
+data(varespec); data(varechem)
+```
+
+Usos de los datos varechem
+```{r}
+df<-varechem
+```
+
+Crear variable binaria: ¿hay Cladonia fimbriata en el sitio?
+Creamos una variable binaria que indica si la especie Cladfimb está presente (1) o ausente (0).
+varespec$Cladfimb → abundancia de esa especie.
+
+> 0 → si aparece al menos una vez.
+
+ifelse() → asigna 1 si está presente, 0 si no.
+
+df$presencia → guarda el resultado en el dataframe.
+```{r}
+df$presencia <- ifelse(varespec$Cladfimb > 0, 1, 0)
+```
+
+Modelo logístico. Ajustamos un modelo logístico para analizar si el pH del suelo influye en la presencia de la especie.
+```{r}
+modelo1 <- glm(presencia ~ pH, data = df, family = binomial)
+```
+
+Resultados
+```{r}
+summary(modelo1)
+```
+Convertimos los coeficientes del modelo logístico a odds ratios para facilitar su interpretación.
+```{r}
+exp(coef(modelo1)) # Odds Ratios
+```
+¿Qué tan bien predice el modelo?
+Convertimos las probabilidades predichas por el modelo en presencia/ausencia y comparamos con los valores reales.
+básicamente comparas:
+
+lo que realmente pasa en los datos
+
+lo que el modelo cree que debería pasar
+```{r}
+predichos <- ifelse(fitted(modelo1) > 0.5, 1, 0)
+table(Real = df$presencia, Predicho = predichos)
+```
+Pseudo R2 de McFadden (equivalente al R2 en regresión logística)
+Calculamos una medida de ajuste del modelo, similar a un pseudo-R², para ver qué tanto explica el modelo.
+```{r}
+1 - (modelo1$deviance / modelo1$null.deviance)
+```
+Interpretación final:
+Se transformó la abundancia de la especie Cladfimb en presencia (1) o ausencia (0) y se ajustó un modelo logístico en R para evaluar si el pH del suelo influye en su presencia. Luego se calcularon odds ratios, se evaluaron las predicciones del modelo y su capacidad de clasificación.
+
+El valor 0.3640529 es un pseudo-R², lo que indica que el modelo explica ≈36% de la variación en la presencia de la especie. En resumen: el pH tiene efecto, pero no explica todo el patrón de distribución.
+
+Los resultados del modelo logístico indican que el pH del suelo influye en la probabilidad de presencia de Cladonia fimbriata en los sitios analizados. La conversión de los coeficientes a odds ratios muestra cómo cambios en el pH modifican la probabilidad de que la especie esté presente, mientras que la matriz de predicción y el pseudo-R² permiten evaluar qué tan bien el modelo explica y predice su presencia o ausencia.
