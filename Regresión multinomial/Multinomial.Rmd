@@ -1,0 +1,108 @@
+---
+title: "Multinomial logit Regression"
+author: "G. Vianey Camacho C"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+Date: 04-03-26
+---
+
+Intalar paquetes
+La función de P_load verifica que paquete sestan instalados y si no estan intalados los instala y sino solo los llama al entorno
+```{r}
+#install.packages("pacman")
+library(pacman)
+p_load(tidyverse,ggplot2,nnet,broom,knitr,kableExtra,gtsummary,ggeffects,marginaleffects,car)
+```
+
+Llamar al entorno nuestro dataset
+Trsntlink se refiere 
+```{r}
+df_MAR<-read.csv("M.A.R_Cleaned.csv")
+View(df_MAR)
+```
+
+Vamos a cambir nuestra variables de categorias a factores nuestras variables. Vamos a "planchar" nuestra base de datos
+```{r}
+df_MAR <- df_MAR %>%
+  mutate(
+    culgrieve = factor(culgrieve, 
+                       labels = c("No Grievances Expressed",
+                                  "Ending Discrimination",
+                                  "Creating/Strengthening Remedial Policies")),
+    legisrep = factor(legisrep, 
+                      labels = c("No", "Yes")),
+    execrep = factor(execrep, 
+                      labels = c("No", "Yes")),
+    grplang = factor(grplang, 
+                     labels = c("<10% Speak Native Lang",
+                                "Some Speak Native Lang",
+                                "Most Speak Native Lang")),
+    trsntlkin = factor(trsntlkin, 
+                       labels = c("No Close Kindred",
+                                  "Close Kindred/Not Adjoining Base",
+                                  "Close Kindred, Adjoining Base",
+                                  "Close Kindred, More than 1 Country")),
+  )
+```
+
+
+Vamos a compara la categoria 0 con la categoria 1 d ela varibale culgrive
+```{r}
+ggplot(df_MAR %>% filter(culgrieve == "No Grievances Expressed" | 
+                           culgrieve == "Ending Discrimination"),
+       aes(x = as.numeric(grplang), y = as.numeric(culgrieve))) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE) +
+  theme_classic()
+```
+Comparamos la categoria 0 (quejas) con la categoria 2 (creación de leyes policiacas)
+```{r}
+ggplot(df_MAR %>% filter(culgrieve == "No Grievances Expressed" | 
+                        culgrieve == "Creating/Strengthening Remedial Policies"),
+       aes(x = as.numeric(grplang), y = as.numeric(culgrieve))) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE) +
+  theme_classic()
+```
+Correr el modelo 
+```{r}
+fit_basic <- multinom(culgrieve ~ grplang, data = df_MAR)
+```
+
+Veamos los resultados 
+```{r}
+summary(fit_basic)
+```
+Vamos a checar la varibailidad de los datos. Si esa variable nos ayuda a predecir nuestra avriable de salida. Entre los coeficientes entre el error estandar.Y ver que variable sresultaron significativas. Mayor de 1.96 es significativo. Y esa variable se va a interpretar. Calcular e interpretar los odds ratios-> exp(coef). A los odds ratios se le resta uno y no dara un resultado menos uno que lo multiplicara por 100 y nos da el porcentaje. Revisar el intercepto (donde x es 0), pero si dado que x no e sun numero, es donde x es la variale base. Y el ultimo punto para interpretarlo es con el AIC. 
+
+Las significativas es de que algunos hablan lenguas nativas.
+--------------------------------------------------------
+
+Otra opción para observarlo se usa tidy. Vamos a hacer más bonita nuestra tabla de resultados. 
+```{r}
+tidy(fit_basic, conf.int = TRUE)
+```
+Ahora veremos como s eve la tabla con kable
+```{r}
+tidy(fit_basic, conf.int = TRUE) %>% 
+  kable() %>% 
+  kable_styling("basic", full_width = FALSE)
+```
+
+Agregamos más variables al modelo. Legisrep si tiene representación en el legislativo, el execrep es si tiene representación en el
+```{r}
+fit_full<-multinom(culgrieve  ~ grplang + trsntlkin + legisrep + 
+    execrep + pct_ctry, data = df_MAR)
+```
+Visualizamos los resultados
+```{r}
+tidy(fit_full, conf.int = TRUE) %>% 
+  kable() %>% 
+  kable_styling("basic", full_width = FALSE)
+```
+
+
+Interpretación: Los resultados del modelo multinomial indican que el uso de lenguas nativas y algunas características políticas del grupo influyen en el tipo de demandas culturales expresadas. En particular, se observa que los grupos donde más personas hablan la lengua nativa tienen mayor probabilidad de expresar demandas como terminar con la discriminación o crear políticas de reparación, en comparación con no expresar quejas culturales. Además, variables como la representación política y los vínculos transnacionales también contribuyen a explicar estas diferencias en las demandas culturales.
