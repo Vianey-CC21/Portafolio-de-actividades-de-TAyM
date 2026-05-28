@@ -1,0 +1,67 @@
+---
+title: "Ejercicio 2 de regresión lineal"
+author: "Vianey Camacho"
+format: html
+editor: visual
+Date: 23-02-26
+---
+
+Primero vamos a llamar el archivo al entorno
+
+```{r}
+fires <- read.csv("forestfires.csv")
+```
+
+Cargamos la librería para gráficos y generamos un histograma para visualizar la distribución del área quemada de los incendios. dataset: fires variable: area unidad: hectáreas quemadas por incendio
+
+```{r}
+library(ggplot2)
+ggplot(fires, aes(x = area)) +
+geom_histogram(bins = 40, fill = "firebrick", color = "white") +
+labs(title = "Distribución del área quemada", x = "Área (ha)", y = "Frecuencia") +
+theme_minimal()
+```
+
+Aplicamos una transformación logarítmica a la variable área (log(area + 1)) y generamos un histograma para visualizar su distribución. Cada barra del histograma = cuántos incendios hay dentro de cierto rango de área quemada (en escala log).
+
+La distribución del tamaño de los incendios forestales (área quemada) después de aplicar una transformación logarítmica.
+
+```{r}
+fires$log_area <- log(fires$area + 1)
+ggplot(fires, aes(x = log_area)) +
+geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+labs(title = "log(área + 1)", x = "log(Área)", y = "Frecuencia") +
+theme_minimal()
+```
+
+justamos un modelo de regresión lineal para analizar si la temperatura explica cambios en el área quemada (en escala log) y mostramos el resumen del modelo. lm() crea un modelo de regresión lineal en R
+
+intenta ver si temp (temperatura) explica cambios en log_area (área quemada transformada)
+
+summary() muestra estadísticas del modelo (coeficientes, p-values, R², etc.)
+
+```{r}
+modelo_simple <- lm(log_area ~ temp, data = fires)
+summary(modelo_simple)
+```
+
+Y ahora graficamos la relación entre temperatura y área quemada (en log) usando un diagrama de dispersión y añadimos la línea de regresión.
+
+Cada punto = un incendio del dataset fires
+
+Eje X = temperatura
+
+Eje Y = log(area + 1)
+
+La línea muestra la tendencia estimada por un modelo lineal.
+
+```{r}
+ggplot(fires, aes(x = temp, y = log_area)) +
+geom_point(alpha = 0.4, color = "firebrick") +
+geom_smooth(method = "lm", color = "navy") +
+labs(title = "Temperatura vs. Área quemada",
+x = "Temperatura (°C)", y = "log(Área + 1)") +
+theme_minimal()
+```
+
+Interpretación: Los resultados muestran que la mayoría de los incendios queman áreas pequeñas y solo unos pocos alcanzan tamaños muy grandes, por lo que la variable área presenta una distribución muy asimétrica. Tras aplicar la transformación logarítmica, el modelo de regresión indica que la temperatura tiene una relación positiva con el área quemada, lo que sugiere que temperaturas más altas tienden a asociarse con incendios de mayor tamaño.
