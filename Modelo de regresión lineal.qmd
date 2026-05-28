@@ -1,0 +1,70 @@
+---
+title: "Modelo de regresión lineal"
+author: "Vianey Cmacho"
+format: html
+editor: visual
+Date: 18-02-26
+---
+
+set.seed es para establecer numeros aleatorios y que cada que habramos el documento esos mismos numeros aleatorios, seran los mismos. Vamos a genera rnummeros aleatotios y con la función set.seed vamos a controlar que sean los mismo cada que abramos el documento. PLot es para el gráfico
+
+```{r}
+set.seed(123)
+x<-rnorm(100)
+e<-rnorm(100,mean=0,sd=1)
+y<-2+1.5*x+e
+plot(x,y)
+```
+
+Notas de estudiantes... Donde explican de que se trata el siguiente chunck. Sirve para una base de datos de El modelo de regresión lineal es el chunk de lm
+
+```{r}
+datos<-data.frame(x, y)
+reg.simple <-lm(y~x, data=datos)
+summary(reg.simple) 
+```
+
+Interpretación del modelo... (aqui debo poner lo que se puede deducir que
+
+Instalar el paquete y llamarlo al entorno
+
+```{r}
+install.packages("palmerpenguins")
+library(palmerpenguins)
+```
+
+Vamos a trabajr con una base datos del paquete, veamos la structura de las variables
+
+Esta información nos dice que es un objeto tibble (es como unpaquet muy utilizado en el mundo de r, en la aprte analogica de r, es como excel). Nos dice que tiene una varibale que se llama especies y hay tres niveles de facotres, (o sea 3 especies de pinguinos). La masa corporal, el sexo y el año. Nos da factores numericos, categoricos y
+
+```{r}
+str(penguins)
+```
+
+Hagamos una muestra en la que selecciones los pinguinos Adelaida. El código nos dice que pairs nos va a yyudar a visualizar los pares de los datos. Lo de 3.6 nos indica las filas en las que se encunetran los datos. NO esta teniendo en cosnideración el sexo y el año.
+
+```{r}
+Ad <- subset(penguins, species == "Adelie")
+pairs(Ad[, 3:6], pch = 1, col = "blue", lower.panel = NULL)
+```
+
+Y si fueran todos los pinguinos
+
+```{r}
+pairs(penguins[, 3:6], pch = 1, col = c("red", "orange", "blue")[penguins$species], lower.panel = NULL)
+```
+
+Vamos a cargar una nueva libreria. Se puede interpretar que hay valores de correlación entre unas y otras entre por ejemplo entre la masa y el pico del piguino es donde hay una mayor correlación. Es decir qu epingunos más pesados tienden a tener picos más grandes.
+
+```{r}
+install.packages("psych")
+library(psych)
+pairs.panels(Ad[, 3:6],
+
+method = "pearson", # correlación
+density = FALSE, # gráficos de densidad
+ellipses = FALSE, # elipses de confianza
+lm = TRUE) # recta
+```
+
+Interpretación final:Los resultados muestran que existe una correlación positiva entre la masa corporal y algunas medidas morfológicas de los pingüinos en el conjunto de datos de palmerpenguins. En particular, se observa que los pingüinos con mayor masa corporal tienden a presentar picos y aletas más grandes, lo que indica una relación directa entre el tamaño corporal y estas características físicas.
