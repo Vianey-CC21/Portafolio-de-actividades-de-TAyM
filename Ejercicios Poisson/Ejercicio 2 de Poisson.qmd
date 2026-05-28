@@ -1,0 +1,128 @@
+---
+title: "Ejercicio 2 de Poisson"
+author: "Vianey Camacho"
+format: html
+editor: visual
+Date: 25-02-26
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+install.packages("sp")
+library(sp)
+install.packages("rworldmap")
+library(rworldmap)
+```
+
+Vamos a llamar al entorno los datos
+
+```{r}
+fires <- read_csv("SUOMI_VIIRS_C2_Central_America_7d.csv")
+```
+
+Filtramos los registros para quedarnos solo con incendios de confianza nominal y alta, y convertimos la fecha de adquisición al formato de fecha. filter() → te quedas solo con datos confiables (nominal, high)
+
+mutate() → transformas acq_date a formato fecha
+
+%\>% → encadena pasos en R (flujo de operaciones tipo “haz esto y luego esto”).
+
+```{r}
+fires<-fires%>%
+filter(confidence %in% c("nominal", "high")) %>%
+mutate(acq_date = as.Date(acq_date))
+```
+
+Asignar pais a cad apunto de fuego Convertimos las coordenadas de los incendios en puntos espaciales y los superponemos con el mapa mundial para identificar en qué país ocurrió cada incendio. select(longitude, latitude) → tomas las coordenadas de cada incendio
+
+SpatialPoints() → las conviertes en puntos geográficos
+
+getMap() → cargas un mapa del mundo
+
+over() → ves en qué polígono (país) cae cada punto
+
+fires\$pais \<- ... → guardas el país de cada incendio en el dataset
+
+```{r}
+coords <- fires %>% select(longitude, latitude)
+
+puntos <- SpatialPoints(coords,
+proj4string = CRS("+proj=longlat +datum=WGS84"))
+
+mapa_mundo <- getMap(resolution = "low")
+
+proj4string(mapa_mundo) <- proj4string(puntos)
+
+pais_asignado <- over(puntos, mapa_mundo)
+
+fires$pais <- pais_asignado$ADMIN
+```
+
+Eliminar puntos en el océano o sin país asignado
+
+```{r}
+fires <- fires %>% filter(!is.na(pais))
+```
+
+Agrupar por país y día
+
+```{r}
+conteo <- fires %>%
+group_by(pais, acq_date) %>%
+summarise(
+n_incendios = n(),
+frp_media = mean(frp),
+brillo_med = mean(bright_ti4),
+prop_noche = mean(daynight == "N"),
+.groups = "drop"
+)
+```
+
+Ver estructura
+
+```{r}
+print(conteo)
+```
+
+n de observaciones
+
+```{r}
+nrow(conteo)
+```
+
+Modelo Poisson. Identificamos los países presentes en los datos para ver cuál queda como categoría de referencia.
+
+```{r}
+#Identifica el país de referencia
+levels(factor(conteo$pais))
+```
+
+Convertimos la fecha en una variable numérica (días desde el inicio del registro) y ajustamos un modelo Poisson para analizar qué factores explican el número de incendios.
+
+```{r}
+#Cambia de numerico a fecha
+conteo <- conteo %>%
+mutate(dia = as.numeric(acq_date - min(acq_date)) + 1)
+modelo <- glm(n_incendios ~ pais + acq_date + frp_media + prop_noche,
+
+family = poisson(link = "log"),
+data = conteo)
+```
+
+Mostramos el resumen del modelos para ver los coeficientes y la signifacnia de las variables
+
+```{r}
+summary(modelo)
+```
+
+Calculamos la exponencial de los coeficientes del modelo para interpretarlos como efectos multiplicativos en el número de incendios.
+
+```{r}
+exp(coef(modelo))
+```
+
+Intepretación final: Se limpiaron y organizaron los datos de incendios, asignando cada punto de fuego a su país y agrupando los registros por país y día para obtener el número de incendios y algunas variables promedio. Después se ajustó un modelo de Poisson en R, adecuado para datos de conteo, para evaluar cómo el país, la fecha, la intensidad del fuego (FRP) y la proporción de incendios nocturnos se relacionan con la cantidad de incendios. Finalmente, al exponenciar los coeficientes se interpretan como efectos multiplicativos sobre el número esperado de incendios.
+
+Es decir, los resultados del modelo de Poisson muestran que el número de incendios varía según el país, el tiempo, la intensidad del fuego (FRP) y la proporción de incendios nocturnos. Al interpretar los coeficientes exponenciados, se observa que estos factores modifican multiplicativamente la cantidad esperada de incendios, lo que indica que las diferencias espaciales y las condiciones de detección influyen en la frecuencia de incendios registrados.

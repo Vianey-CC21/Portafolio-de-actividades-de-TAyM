@@ -1,0 +1,132 @@
+---
+title: "Ejercicio 1 de poisson"
+format: html
+editor: visual
+---
+
+```{r}
+install.packages("tidyverse")
+library (tidyverse)
+```
+
+Calcular la probabilidad de ver exactamente 4 jaguares
+
+```{r}
+dpois(x = 4, lambda = 2)
+```
+
+Probabilidad de ver MÁS DE 3 jaguares P(X \> 3)
+
+lambda = 2 → en promedio se esperan 2 jaguares por observación.
+
+q = 3 → el punto de corte es 3 jaguares.
+
+lower.tail = FALSE → calcula la probabilidad de más de 3, no de 0-3.
+
+```{r}
+ppois(q = 3, lambda = 2, lower.tail = FALSE)
+```
+
+Generar una serie de tiempo aletorio de avistamientos (12 meses)
+
+```{r}
+avistamientos_mes <- rpois(n = 12, lambda = 2)
+plot(avistamientos_mes, type = "b", main = "Avistamientos Mensuales Estimados")
+```
+
+Visualización comparativa Calculamos y graficamos la distribución de Poisson para diferentes tasas promedio (λ) para ver cómo cambia la probabilidad del número de eventos. λ = 1 → la mayor probabilidad está en 0–1 eventos (casi nunca verías muchos jaguares).
+
+λ = 4 → la mayor probabilidad está alrededor de 3–5 eventos.
+
+λ = 10 → la distribución se mueve hacia más eventos (alrededor de 9–11).
+
+```{r}
+library(ggplot2)
+# Crear datos para lambda = 1, 4 y 10
+x <- 0:20
+df <- data.frame(
+x = rep(x, 3),
+prob = c(dpois(x, 1), dpois(x, 4), dpois(x, 10)),
+lambda = factor(rep(c(1, 4, 10), each = 21))
+)
+# Graficar
+ggplot(df, aes(x = x, y = prob, fill = lambda)) +
+geom_col(position = "dodge") +
+labs(title = "Distribución de Poisson con diferentes tasas (lambda)",
+     x = "Número de eventos", y = "Probabilidad") +
+theme_minimal()
+```
+
+Leer el archivo
+
+```{r}
+fires<-read.csv("SUOMI_VIIRS_C2_Central_America_7d.csv")
+```
+
+Filtrar solo detecciones confiables Plancharlo es como pasarlo por encima para que no se dupliquen los objetos. Filtramos los datos para quedarnos solo con incendios con confianza nominal o alta, es decir limpiar el dataset, para quitar registros poco confiables.
+
+```{r}
+fires <- fires %>%
+filter(confidence %in% c("nominal", "high"))
+```
+
+Convertir fecha. Convertimos la fecha a formato fecha y extraemos mes y año de cada incendio.
+
+```{r}
+fires <- fires %>%
+mutate(acq_date = as.Date(acq_date),
+mes = month(acq_date),
+año = year(acq_date))
+```
+
+Ver la estructura en la base de datos
+
+```{r}
+str(fires$acq_date)
+```
+
+Contar incendios por día (esta es tu variable respuesta Y). Agrupamos los incendios por día y momento del día (día/noche) y calculamos el número de incendios y su FRP promedio.
+
+```{r}
+conteo_diario <- fires %>%
+filter(confidence %in% c("nominal", "high")) %>%
+mutate(acq_date = as.Date(acq_date),
+dia = as.numeric(acq_date - min(acq_date)) + 1) %>%
+group_by(dia, daynight) %>%
+summarise(
+n_incendios = n(),
+frp_media = mean(frp),
+.groups = "drop")
+```
+
+Modelo de Poisson. Ajustamos un modelo de Poisson para analizar si el momento del día (día/noche) y la intensidad del fuego (FRP) influyen en el número de incendios.
+
+```{r}
+modelo <- glm(n_incendios ~ daynight + frp_media,
+family = poisson(link = "log"),
+data = conteo_diario)
+```
+
+¿El número de incendios detectados en Centroamérica durante 7 días depende del momento del día (día/noche) y de la intensidad del fuego (FRP)?
+
+Mostramos el resumen del modelo de Poisson para ver los coeficientes y la significancia de las variables.
+
+```{r}
+summary(modelo)
+```
+
+Como tenemos un modelo de POsisson debemos interpretar los coefiientes
+
+Calculamos la exponencial de los coeficientes para interpretarlos como efectos multiplicativos en el número de incendios.
+
+```{r}
+exp(coef(modelo)) # interpretar coeficientes
+```
+
+Interpretación final: Los resultados del modelo de Poisson indican que el número de incendios detectados depende del momento del día y de la intensidad del fuego (FRP). Al interpretar los coeficientes exponenciados, se observa que cambios en la intensidad del fuego y la diferencia entre día y noche modifican multiplicativamente la cantidad esperada de incendios, lo que sugiere que condiciones con mayor FRP y el periodo del día influyen en la frecuencia de detecciones de incendios.
+
+Intercept (1.5) → número de incendios esperados de referencia.
+
+daynightN (1.63) → el momento del día importa: más incendios ocurren en la noche.
+
+frp_media (1.05) → la intensidad del fuego también importa, pero el efecto es menor: cada aumento en FRP aumenta ligeramente los incendios esperados.
